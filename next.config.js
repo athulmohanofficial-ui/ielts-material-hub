@@ -1,11 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    appDir: true,
-  },
+  output: 'export',
+  distDir: 'dist',
   images: {
+    unoptimized: true,
     domains: ['yqqkgkitfeszvwsyygkk.supabase.co'],
   },
-};
+}
 
-module.exports = nextConfig;
+module.exports = nextConfig
