@@ -1,3 +1,4 @@
+import './globals.css'
 import Link from 'next/link'
 import { BookOpen, Headphones, Mic, PenLine } from 'lucide-react'
 
