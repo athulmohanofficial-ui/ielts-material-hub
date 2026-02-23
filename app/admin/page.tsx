@@ -78,15 +78,7 @@ export default function AdminPage() {
             {pinError && (
               <p className="text-red-600 text-sm text-center">{pinError}</p>
             )}
-<button
-  onClick={() => setActiveTab('speaking-tests')}
-  className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${
-    activeTab === 'speaking-tests' ? 'bg-purple-50 text-purple-700 border-l-4 border-purple-600' : 'hover:bg-gray-50'
-  }`}
->
-  <Mic className="w-5 h-5" />
-  <span className="font-medium">Speaking Tests</span>
-</button>
+
             <button
               type="submit"
               className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
@@ -151,13 +143,13 @@ export default function AdminPage() {
                 <span className="font-medium">Listening</span>
               </button>
               <button
-                onClick={() => setActiveTab('speaking')}
+                onClick={() => setActiveTab('speaking-tests')}
                 className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${
-                  activeTab === 'speaking' ? 'bg-purple-50 text-purple-700 border-l-4 border-purple-600' : 'hover:bg-gray-50'
+                  activeTab === 'speaking-tests' ? 'bg-purple-50 text-purple-700 border-l-4 border-purple-600' : 'hover:bg-gray-50'
                 }`}
               >
                 <Mic className="w-5 h-5" />
-                <span className="font-medium">Speaking</span>
+                <span className="font-medium">Speaking Tests</span>
               </button>
               <button
                 onClick={() => setActiveTab('writing')}
@@ -184,7 +176,7 @@ export default function AdminPage() {
           <div className="lg:col-span-4">
             {activeTab === 'reading' && <ReadingUpload />}
             {activeTab === 'listening' && <ListeningUpload />}
-            {activeTab === 'speaking' && <SpeakingUpload />}
+            {activeTab === 'speaking-tests' && <SpeakingTestsUpload />}
             {activeTab === 'writing' && <WritingUpload />}
             {activeTab === 'submissions' && <SubmissionsView />}
           </div>
@@ -211,7 +203,6 @@ function ReadingUpload() {
     setMessage('')
 
     try {
-      // Upload passage PDF
       const passageExt = passageFile.name.split('.').pop()
       const passagePath = `passages/${Date.now()}-passage.${passageExt}`
       const { error: passageError } = await supabase.storage
@@ -220,7 +211,6 @@ function ReadingUpload() {
 
       if (passageError) throw passageError
 
-      // Upload questions PDF
       const questionsExt = questionsFile.name.split('.').pop()
       const questionsPath = `questions/${Date.now()}-questions.${questionsExt}`
       const { error: questionsError } = await supabase.storage
@@ -229,7 +219,6 @@ function ReadingUpload() {
 
       if (questionsError) throw questionsError
 
-      // Save to database
       const { error: dbError } = await supabase.from('reading_tests').insert({
         title,
         category,
@@ -392,7 +381,7 @@ function ListeningUpload() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
-            placeholder="e.g., Listening Test 1 - Section 1"
+            placeholder="e.g., Listening Test 1"
             required
           />
         </div>
@@ -452,35 +441,44 @@ function ListeningUpload() {
   )
 }
 
-// Speaking Upload Component
-function SpeakingUpload() {
-  const [questionText, setQuestionText] = useState('')
-  const [part, setPart] = useState(1)
-  const [category, setCategory] = useState('academic')
+// Speaking Tests Upload Component (NEW - Full Tests)
+function SpeakingTestsUpload() {
+  const [title, setTitle] = useState('')
+  const [introQuestions, setIntroQuestions] = useState(['', '', '', '', '', ''])
   const [cueCard, setCueCard] = useState('')
+  const [followUpQuestions, setFollowUpQuestions] = useState(['', '', '', '', ''])
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState('')
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!questionText) return
-
     setUploading(true)
     setMessage('')
 
     try {
-      const { error } = await supabase.from('speaking_questions').insert({
-        question_text: questionText,
-        part,
-        category,
-        cue_card: part === 2 ? cueCard : null
+      const { error } = await supabase.from('speaking_tests').insert({
+        title,
+        intro_q1: introQuestions[0],
+        intro_q2: introQuestions[1],
+        intro_q3: introQuestions[2],
+        intro_q4: introQuestions[3],
+        intro_q5: introQuestions[4],
+        intro_q6: introQuestions[5],
+        cue_card: cueCard,
+        followup_q1: followUpQuestions[0],
+        followup_q2: followUpQuestions[1],
+        followup_q3: followUpQuestions[2],
+        followup_q4: followUpQuestions[3],
+        followup_q5: followUpQuestions[4],
       })
 
       if (error) throw error
 
-      setMessage('Question added successfully!')
-      setQuestionText('')
+      setMessage('Test created successfully!')
+      setTitle('')
+      setIntroQuestions(['', '', '', '', '', ''])
       setCueCard('')
+      setFollowUpQuestions(['', '', '', '', ''])
     } catch (error: any) {
       setMessage('Error: ' + error.message)
     } finally {
@@ -492,57 +490,68 @@ function SpeakingUpload() {
     <div className="bg-white rounded-xl shadow-sm border p-6">
       <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
         <Mic className="w-6 h-6 text-purple-600" />
-        Add Speaking Question
+        Create Full Speaking Test
       </h2>
 
-      <form onSubmit={handleUpload} className="space-y-4">
+      <form onSubmit={handleUpload} className="space-y-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Part</label>
-          <select
-            value={part}
-            onChange={(e) => setPart(parseInt(e.target.value))}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
-          >
-            <option value={1}>Part 1 - Introduction</option>
-            <option value={2}>Part 2 - Cue Card</option>
-            <option value={3}>Part 3 - Discussion</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
-          >
-            <option value="academic">Academic</option>
-            <option value="general">General Training</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Question Text</label>
-          <textarea
-            value={questionText}
-            onChange={(e) => setQuestionText(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none h-24"
-            placeholder="Enter the question here..."
+          <label className="block text-sm font-medium text-gray-700 mb-1">Test Title</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full px-4 py-2 border rounded-lg"
+            placeholder="e.g., Speaking Test 1"
             required
           />
         </div>
 
-        {part === 2 && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Cue Card Details</label>
-            <textarea
-              value={cueCard}
-              onChange={(e) => setCueCard(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none h-32"
-              placeholder="Describe a memorable journey you have taken.&#10;You should say:&#10;- Where you went&#10;- Who you were with&#10;- What you did&#10;- And explain why it was memorable"
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <label className="block text-sm font-medium text-blue-800 mb-2">Part 1: Introduction (6 questions)</label>
+          {introQuestions.map((q, i) => (
+            <input
+              key={i}
+              type="text"
+              value={q}
+              onChange={(e) => {
+                const newQs = [...introQuestions]
+                newQs[i] = e.target.value
+                setIntroQuestions(newQs)
+              }}
+              className="w-full px-4 py-2 border rounded-lg mb-2"
+              placeholder={`Question ${i + 1}`}
             />
-          </div>
-        )}
+          ))}
+        </div>
+
+        <div className="bg-purple-50 p-4 rounded-lg">
+          <label className="block text-sm font-medium text-purple-800 mb-2">Part 2: Cue Card</label>
+          <textarea
+            value={cueCard}
+            onChange={(e) => setCueCard(e.target.value)}
+            className="w-full px-4 py-2 border rounded-lg h-32"
+            placeholder="Describe a memorable journey.&#10;You should say:&#10;- Where it is&#10;- How you went there&#10;- Who you were with&#10;- And explain why it was memorable"
+            required
+          />
+        </div>
+
+        <div className="bg-orange-50 p-4 rounded-lg">
+          <label className="block text-sm font-medium text-orange-800 mb-2">Part 3: Follow-up (5 questions)</label>
+          {followUpQuestions.map((q, i) => (
+            <input
+              key={i}
+              type="text"
+              value={q}
+              onChange={(e) => {
+                const newQs = [...followUpQuestions]
+                newQs[i] = e.target.value
+                setFollowUpQuestions(newQs)
+              }}
+              className="w-full px-4 py-2 border rounded-lg mb-2"
+              placeholder={`Question ${i + 1}`}
+            />
+          ))}
+        </div>
 
         {message && (
           <div className={`p-3 rounded-lg ${
@@ -555,19 +564,9 @@ function SpeakingUpload() {
         <button
           type="submit"
           disabled={uploading}
-          className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+          className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition disabled:opacity-50"
         >
-          {uploading ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              Adding...
-            </>
-          ) : (
-            <>
-              <CheckCircle className="w-5 h-5" />
-              Add Question
-            </>
-          )}
+          {uploading ? 'Creating...' : 'Create Test'}
         </button>
       </form>
     </div>
@@ -593,7 +592,6 @@ function WritingUpload() {
     try {
       let imageUrl = null
 
-      // Upload image if provided (for Task 1)
       if (imageFile) {
         const ext = imageFile.name.split('.').pop()
         const filePath = `images/${Date.now()}-task.${ext}`
@@ -813,134 +811,4 @@ function SubmissionsView() {
       )}
     </div>
   )
-  function SpeakingTestsUpload() {
-  const [title, setTitle] = useState('')
-  const [introQuestions, setIntroQuestions] = useState(['', '', '', '', '', ''])
-  const [cueCard, setCueCard] = useState('')
-  const [followUpQuestions, setFollowUpQuestions] = useState(['', '', '', '', ''])
-  const [uploading, setUploading] = useState(false)
-  const [message, setMessage] = useState('')
-
-  const handleUpload = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setUploading(true)
-    setMessage('')
-
-    try {
-      const { error } = await supabase.from('speaking_tests').insert({
-        title,
-        intro_q1: introQuestions[0],
-        intro_q2: introQuestions[1],
-        intro_q3: introQuestions[2],
-        intro_q4: introQuestions[3],
-        intro_q5: introQuestions[4],
-        intro_q6: introQuestions[5],
-        cue_card: cueCard,
-        followup_q1: followUpQuestions[0],
-        followup_q2: followUpQuestions[1],
-        followup_q3: followUpQuestions[2],
-        followup_q4: followUpQuestions[3],
-        followup_q5: followUpQuestions[4],
-      })
-
-      if (error) throw error
-
-      setMessage('Test created successfully!')
-      setTitle('')
-      setIntroQuestions(['', '', '', '', '', ''])
-      setCueCard('')
-      setFollowUpQuestions(['', '', '', '', ''])
-    } catch (error: any) {
-      setMessage('Error: ' + error.message)
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  return (
-    <div className="bg-white rounded-xl shadow-sm border p-6">
-      <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-        <Mic className="w-6 h-6 text-purple-600" />
-        Create Speaking Test
-      </h2>
-
-      <form onSubmit={handleUpload} className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Test Title</label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg"
-            placeholder="e.g., Speaking Test 1"
-            required
-          />
-        </div>
-
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <label className="block text-sm font-medium text-blue-800 mb-2">Part 1: Introduction Questions (6)</label>
-          {introQuestions.map((q, i) => (
-            <input
-              key={i}
-              type="text"
-              value={q}
-              onChange={(e) => {
-                const newQs = [...introQuestions]
-                newQs[i] = e.target.value
-                setIntroQuestions(newQs)
-              }}
-              className="w-full px-4 py-2 border rounded-lg mb-2"
-              placeholder={`Question ${i + 1}`}
-            />
-          ))}
-        </div>
-
-        <div className="bg-purple-50 p-4 rounded-lg">
-          <label className="block text-sm font-medium text-purple-800 mb-2">Part 2: Cue Card</label>
-          <textarea
-            value={cueCard}
-            onChange={(e) => setCueCard(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg h-32"
-            placeholder="Describe a memorable journey.&#10;You should say:&#10;- Where it is&#10;- How you went there&#10;- Who you were with&#10;- And explain why it was memorable"
-            required
-          />
-        </div>
-
-        <div className="bg-orange-50 p-4 rounded-lg">
-          <label className="block text-sm font-medium text-orange-800 mb-2">Part 3: Follow-up Questions (5)</label>
-          {followUpQuestions.map((q, i) => (
-            <input
-              key={i}
-              type="text"
-              value={q}
-              onChange={(e) => {
-                const newQs = [...followUpQuestions]
-                newQs[i] = e.target.value
-                setFollowUpQuestions(newQs)
-              }}
-              className="w-full px-4 py-2 border rounded-lg mb-2"
-              placeholder={`Question ${i + 1}`}
-            />
-          ))}
-        </div>
-
-        {message && (
-          <div className={`p-3 rounded-lg ${
-            message.includes('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
-          }`}>
-            {message}
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={uploading}
-          className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition disabled:opacity-50"
-        >
-          {uploading ? 'Creating...' : 'Create Test'}
-        </button>
-      </form>
-    </div>
-  )
-}
 }
