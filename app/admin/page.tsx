@@ -28,7 +28,6 @@ export default function AdminPage() {
   const [pinError, setPinError] = useState('')
   const [activeTab, setActiveTab] = useState('reading')
 
-  // Check if already authenticated
   useEffect(() => {
     const auth = sessionStorage.getItem('admin_auth')
     if (auth === 'true') {
@@ -97,7 +96,6 @@ export default function AdminPage() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -121,7 +119,6 @@ export default function AdminPage() {
 
       <div className="max-w-7xl mx-auto p-4">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
               <button
@@ -172,7 +169,6 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Main Content */}
           <div className="lg:col-span-4">
             {activeTab === 'reading' && <ReadingUpload />}
             {activeTab === 'listening' && <ListeningUpload />}
@@ -186,7 +182,6 @@ export default function AdminPage() {
   )
 }
 
-// Reading Upload Component
 function ReadingUpload() {
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('academic')
@@ -323,42 +318,61 @@ function ReadingUpload() {
   )
 }
 
-// Listening Upload Component
 function ListeningUpload() {
   const [title, setTitle] = useState('')
-  const [difficulty, setDifficulty] = useState('medium')
-  const [audioFile, setAudioFile] = useState<File | null>(null)
+  const [answerKey, setAnswerKey] = useState('')
+  const [files, setFiles] = useState({
+    part1_audio: null as File | null,
+    part2_audio: null as File | null,
+    part3_audio: null as File | null,
+    part4_audio: null as File | null,
+    part1_questions: null as File | null,
+    part2_questions: null as File | null,
+    part3_questions: null as File | null,
+    part4_questions: null as File | null,
+  })
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState('')
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!audioFile || !title) return
+    if (!title || !answerKey) return
 
     setUploading(true)
     setMessage('')
 
     try {
-      const ext = audioFile.name.split('.').pop()
-      const filePath = `audio/${Date.now()}-listening.${ext}`
+      const formData = new FormData()
+      formData.append('title', title)
+      formData.append('answer_key', answerKey)
       
-      const { error: uploadError } = await supabase.storage
-        .from('listening-audio')
-        .upload(filePath, audioFile)
+      if (files.part1_audio) formData.append('part1_audio', files.part1_audio)
+      if (files.part2_audio) formData.append('part2_audio', files.part2_audio)
+      if (files.part3_audio) formData.append('part3_audio', files.part3_audio)
+      if (files.part4_audio) formData.append('part4_audio', files.part4_audio)
+      
+      if (files.part1_questions) formData.append('part1_questions', files.part1_questions)
+      if (files.part2_questions) formData.append('part2_questions', files.part2_questions)
+      if (files.part3_questions) formData.append('part3_questions', files.part3_questions)
+      if (files.part4_questions) formData.append('part4_questions', files.part4_questions)
 
-      if (uploadError) throw uploadError
-
-      const { error: dbError } = await supabase.from('listening_tests').insert({
-        title,
-        difficulty,
-        audio_path: filePath
+      const res = await fetch('/api/listening/upload', {
+        method: 'POST',
+        body: formData,
       })
-
-      if (dbError) throw dbError
-
-      setMessage('Listening test uploaded successfully!')
-      setTitle('')
-      setAudioFile(null)
+      
+      if (res.ok) {
+        setMessage('Listening test uploaded successfully!')
+        setTitle('')
+        setAnswerKey('')
+        setFiles({
+          part1_audio: null, part2_audio: null, part3_audio: null, part4_audio: null,
+          part1_questions: null, part2_questions: null, part3_questions: null, part4_questions: null,
+        })
+      } else {
+        const error = await res.json()
+        setMessage('Error: ' + error.error)
+      }
     } catch (error: any) {
       setMessage('Error: ' + error.message)
     } finally {
@@ -370,7 +384,7 @@ function ListeningUpload() {
     <div className="bg-white rounded-xl shadow-sm border p-6">
       <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
         <Headphones className="w-6 h-6 text-green-600" />
-        Upload Listening Test
+        Upload Listening Test (4 Parts)
       </h2>
 
       <form onSubmit={handleUpload} className="space-y-4">
@@ -386,29 +400,113 @@ function ListeningUpload() {
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
-          <select
-            value={difficulty}
-            onChange={(e) => setDifficulty(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
-          >
-            <option value="easy">Easy</option>
-            <option value="medium">Medium</option>
-            <option value="hard">Hard</option>
-          </select>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="border p-4 rounded-lg bg-green-50">
+            <h3 className="font-semibold text-green-800 mb-3">Part 1</h3>
+            <div className="space-y-2">
+              <div>
+                <label className="text-xs text-gray-600">Audio (MP3)</label>
+                <input
+                  type="file"
+                  accept="audio/mp3,audio/mpeg"
+                  onChange={(e) => setFiles({...files, part1_audio: e.target.files?.[0] || null})}
+                  className="w-full text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-600">Questions (Image/PDF)</label>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => setFiles({...files, part1_questions: e.target.files?.[0] || null})}
+                  className="w-full text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="border p-4 rounded-lg bg-blue-50">
+            <h3 className="font-semibold text-blue-800 mb-3">Part 2</h3>
+            <div className="space-y-2">
+              <div>
+                <label className="text-xs text-gray-600">Audio (MP3)</label>
+                <input
+                  type="file"
+                  accept="audio/mp3,audio/mpeg"
+                  onChange={(e) => setFiles({...files, part2_audio: e.target.files?.[0] || null})}
+                  className="w-full text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-600">Questions (Image/PDF)</label>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => setFiles({...files, part2_questions: e.target.files?.[0] || null})}
+                  className="w-full text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="border p-4 rounded-lg bg-purple-50">
+            <h3 className="font-semibold text-purple-800 mb-3">Part 3</h3>
+            <div className="space-y-2">
+              <div>
+                <label className="text-xs text-gray-600">Audio (MP3)</label>
+                <input
+                  type="file"
+                  accept="audio/mp3,audio/mpeg"
+                  onChange={(e) => setFiles({...files, part3_audio: e.target.files?.[0] || null})}
+                  className="w-full text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-600">Questions (Image/PDF)</label>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => setFiles({...files, part3_questions: e.target.files?.[0] || null})}
+                  className="w-full text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="border p-4 rounded-lg bg-orange-50">
+            <h3 className="font-semibold text-orange-800 mb-3">Part 4</h3>
+            <div className="space-y-2">
+              <div>
+                <label className="text-xs text-gray-600">Audio (MP3)</label>
+                <input
+                  type="file"
+                  accept="audio/mp3,audio/mpeg"
+                  onChange={(e) => setFiles({...files, part4_audio: e.target.files?.[0] || null})}
+                  className="w-full text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-600">Questions (Image/PDF)</label>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => setFiles({...files, part4_questions: e.target.files?.[0] || null})}
+                  className="w-full text-sm"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Audio File (MP3)</label>
-          <input
-            type="file"
-            accept="audio/mp3,audio/mpeg"
-            onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
-            className="w-full px-4 py-2 border rounded-lg"
+          <label className="block text-sm font-medium text-gray-700 mb-1">Answer Key</label>
+          <textarea
+            value={answerKey}
+            onChange={(e) => setAnswerKey(e.target.value)}
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none h-32"
+            placeholder="1. A&#10;2. B&#10;3. C&#10;..."
             required
           />
-          <p className="text-sm text-gray-500 mt-1">Max file size: 50MB</p>
         </div>
 
         {message && (
@@ -432,7 +530,7 @@ function ListeningUpload() {
           ) : (
             <>
               <Upload className="w-5 h-5" />
-              Upload Audio
+              Upload Test
             </>
           )}
         </button>
@@ -441,7 +539,6 @@ function ListeningUpload() {
   )
 }
 
-// Speaking Tests Upload Component (NEW - Full Tests)
 function SpeakingTestsUpload() {
   const [title, setTitle] = useState('')
   const [introQuestions, setIntroQuestions] = useState(['', '', '', '', '', ''])
@@ -573,7 +670,6 @@ function SpeakingTestsUpload() {
   )
 }
 
-// Writing Upload Component
 function WritingUpload() {
   const [questionText, setQuestionText] = useState('')
   const [taskType, setTaskType] = useState(1)
@@ -713,7 +809,6 @@ function WritingUpload() {
   )
 }
 
-// Submissions View Component
 function SubmissionsView() {
   const [submissions, setSubmissions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
