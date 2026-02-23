@@ -132,10 +132,11 @@ export default function ListeningTestPage() {
   if (loading) return <div className="p-8 text-center">Loading test...</div>;
   if (!test) return <div className="p-8 text-center">Test not found</div>;
 
+  // ANSWER KEY VIEW - Shows as Image/PDF
   if (showAnswers) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
-        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8">
+      <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+        <div className="max-w-5xl mx-auto bg-white rounded-lg shadow-lg p-6">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-green-600">Answer Key: {test.title}</h1>
             <button
@@ -147,14 +148,42 @@ export default function ListeningTestPage() {
             </button>
           </div>
           
-          <div className="bg-gray-100 p-6 rounded-lg whitespace-pre-wrap font-mono text-sm">
-            {test.answer_key || 'No answers provided yet.'}
+          {/* Answer Key as Image */}
+          <div className="bg-gray-100 rounded-lg overflow-hidden min-h-[600px] flex items-center justify-center">
+            {test.answer_key ? (
+              <img 
+                src={test.answer_key} 
+                alt="Answer Key"
+                className="max-w-full max-h-[80vh] object-contain"
+              />
+            ) : (
+              <div className="text-center text-gray-500 p-12">
+                <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                <p className="text-lg">No answer key available for this test.</p>
+              </div>
+            )}
           </div>
+          
+          {/* Download button if answer key exists */}
+          {test.answer_key && (
+            <div className="mt-4 text-center">
+              <a 
+                href={test.answer_key} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+              >
+                <FileText className="w-5 h-5" />
+                Open Answer Key in New Tab
+              </a>
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
+  // MAIN TEST VIEW
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
