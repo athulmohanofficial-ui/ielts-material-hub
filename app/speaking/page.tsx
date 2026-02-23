@@ -1,7 +1,18 @@
 import Link from 'next/link'
-import { Mic, GraduationCap, Globe, ArrowLeft } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { Mic, ArrowLeft, Clock } from 'lucide-react'
 
-export default function SpeakingPage() {
+async function getTests() {
+  const { data } = await supabase
+    .from('speaking_tests')
+    .select('*')
+    .order('created_at', { ascending: false })
+  return data || []
+}
+
+export default async function SpeakingPage() {
+  const tests = await getTests()
+
   return (
     <main className="min-h-screen p-8 bg-gray-50">
       <div className="max-w-4xl mx-auto">
@@ -10,61 +21,42 @@ export default function SpeakingPage() {
             <ArrowLeft className="w-6 h-6" />
           </Link>
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Speaking Practice</h1>
-            <p className="text-gray-600">Choose your test type</p>
+            <h1 className="text-3xl font-bold text-gray-800">Speaking Tests</h1>
+            <p className="text-gray-600">Full tests with all 3 parts</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Academic Option */}
-          <Link href="/speaking/academic" className="block">
-            <div className="bg-white border-2 border-speaking-500 rounded-2xl p-8 hover:shadow-xl transition text-center">
-              <div className="w-20 h-20 bg-speaking-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <GraduationCap className="w-10 h-10 text-speaking-600" />
-              </div>
-              <h2 className="text-2xl font-bold text-speaking-700 mb-3">
-                Academic
-              </h2>
-              <p className="text-gray-600">
-                Formal topics for university and professional contexts
-              </p>
-              <div className="mt-6 inline-flex items-center text-speaking-600 font-semibold">
-                Start Practice →
-              </div>
-            </div>
-          </Link>
-
-          {/* General Option */}
-          <Link href="/speaking/general" className="block">
-            <div className="bg-white border-2 border-speaking-500 rounded-2xl p-8 hover:shadow-xl transition text-center">
-              <div className="w-20 h-20 bg-speaking-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Globe className="w-10 h-10 text-speaking-600" />
-              </div>
-              <h2 className="text-2xl font-bold text-speaking-700 mb-3">
-                General Training
-              </h2>
-              <p className="text-gray-600">
-                Everyday topics for work and social contexts
-              </p>
-              <div className="mt-6 inline-flex items-center text-speaking-600 font-semibold">
-                Start Practice →
-              </div>
-            </div>
-          </Link>
-        </div>
-
-        <div className="mt-12 bg-speaking-50 border border-speaking-200 rounded-xl p-6">
-          <h3 className="font-semibold text-speaking-800 mb-2 flex items-center">
-            <Mic className="w-5 h-5 mr-2" />
-            How it works:
-          </h3>
-          <ul className="space-y-2 text-gray-700">
-            <li>• Select a question (Part 1, 2, or 3)</li>
-            <li>• Click the microphone to record your answer</li>
-            <li>• AI will analyze and give you a band score</li>
-            <li>• Get feedback on fluency, vocabulary, grammar, and pronunciation</li>
-          </ul>
-        </div>
+        {tests.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-xl border-2 border-dashed border-gray-300">
+            <Mic className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500">No tests yet. Add in admin.</p>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {tests.map((test) => (
+              <Link 
+                key={test.id} 
+                href={`/speaking/${test.id}`}
+                className="block bg-white rounded-xl p-6 border-2 border-gray-200 hover:border-purple-500 hover:shadow-lg transition"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mr-4">
+                      <Mic className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-800">{test.title}</h3>
+                      <p className="text-gray-500 text-sm flex items-center mt-1">
+                        <Clock className="w-4 h-4 mr-1" /> 11-14 minutes
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-purple-600 font-semibold">Start →</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </main>
   )
