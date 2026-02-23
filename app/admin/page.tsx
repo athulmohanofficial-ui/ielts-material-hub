@@ -171,7 +171,7 @@ export default function AdminPage() {
 
           <div className="lg:col-span-4">
             {activeTab === 'reading' && <ReadingUpload />}
-            {activeTab === 'listening' && <ListeningUpload />}
+            {activeTab === 'listening' && <ListeningManager />}
             {activeTab === 'speaking-tests' && <SpeakingTestsUpload />}
             {activeTab === 'writing' && <WritingUpload />}
             {activeTab === 'submissions' && <SubmissionsView />}
@@ -318,7 +318,114 @@ function ReadingUpload() {
   )
 }
 
-function ListeningUpload() {
+// NEW: Listening Manager with Upload + List + Delete
+function ListeningManager() {
+  const [view, setView] = useState<'upload' | 'list'>('list')
+  const [tests, setTests] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchTests()
+  }, [])
+
+  async function fetchTests() {
+    const { data, error } = await supabase
+      .from('listening_tests')
+      .select('*')
+      .order('created_at', { ascending: true })
+    
+    if (data) setTests(data)
+    setLoading(false)
+  }
+
+  async function deleteTest(testId: string, testTitle: string) {
+    if (!confirm(`Are you sure you want to delete "${testTitle}"? This cannot be undone.`)) {
+      return
+    }
+
+    try {
+      // Delete from database
+      const { error } = await supabase
+        .from('listening_tests')
+        .delete()
+        .eq('id', testId)
+
+      if (error) throw error
+
+      // Refresh list
+      fetchTests()
+      alert('Test deleted successfully!')
+    } catch (error: any) {
+      alert('Error deleting test: ' + error.message)
+    }
+  }
+
+  if (view === 'upload') {
+    return <ListeningUploadForm onBack={() => { setView('list'); fetchTests(); }} />
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+          <Headphones className="w-6 h-6 text-green-600" />
+          Listening Tests
+        </h2>
+        <button
+          onClick={() => setView('upload')}
+          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+        >
+          <Upload className="w-4 h-4" />
+          Upload New Test
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-gray-600" />
+        </div>
+      ) : tests.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-sm border p-8 text-center text-gray-500">
+          <Headphones className="w-12 h-12 mx-auto mb-4 opacity-50" />
+          <p>No listening tests yet. Upload your first test!</p>
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {tests.map((test, index) => (
+            <div
+              key={test.id}
+              className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <span className="text-green-600 font-bold">{index + 1}</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">{test.title}</h3>
+                  <p className="text-sm text-gray-500">
+                    Created: {new Date(test.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+              
+              <button
+                onClick={() => deleteTest(test.id, test.title)}
+                className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition"
+                title="Delete this test"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="font-medium">Delete</span>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Listening Upload Form Component
+function ListeningUploadForm({ onBack }: { onBack: () => void }) {
   const [title, setTitle] = useState('')
   const [answerKey, setAnswerKey] = useState('')
   const [files, setFiles] = useState({
@@ -363,12 +470,9 @@ function ListeningUpload() {
       
       if (res.ok) {
         setMessage('Listening test uploaded successfully!')
-        setTitle('')
-        setAnswerKey('')
-        setFiles({
-          part1_audio: null, part2_audio: null, part3_audio: null, part4_audio: null,
-          part1_questions: null, part2_questions: null, part3_questions: null, part4_questions: null,
-        })
+        setTimeout(() => {
+          onBack()
+        }, 1500)
       } else {
         const error = await res.json()
         setMessage('Error: ' + error.error)
@@ -382,10 +486,18 @@ function ListeningUpload() {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border p-6">
-      <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-        <Headphones className="w-6 h-6 text-green-600" />
-        Upload Listening Test (4 Parts)
-      </h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+          <Headphones className="w-6 h-6 text-green-600" />
+          Upload Listening Test (4 Parts)
+        </h2>
+        <button
+          onClick={onBack}
+          className="text-gray-600 hover:text-gray-800"
+        >
+          ← Back to List
+        </button>
+      </div>
 
       <form onSubmit={handleUpload} className="space-y-4">
         <div>
@@ -517,23 +629,32 @@ function ListeningUpload() {
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={uploading}
-          className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {uploading ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              Uploading...
-            </>
-          ) : (
-            <>
-              <Upload className="w-5 h-5" />
-              Upload Test
-            </>
-          )}
-        </button>
+        <div className="flex gap-4">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-300 transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={uploading}
+            className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {uploading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Uploading...
+              </>
+            ) : (
+              <>
+                <Upload className="w-5 h-5" />
+                Upload Test
+              </>
+            )}
+          </button>
+        </div>
       </form>
     </div>
   )
