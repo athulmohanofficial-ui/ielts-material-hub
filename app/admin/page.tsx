@@ -318,7 +318,6 @@ function ReadingUpload() {
   )
 }
 
-// NEW: Listening Manager with Upload + List + Delete
 function ListeningManager() {
   const [view, setView] = useState<'upload' | 'list'>('list')
   const [tests, setTests] = useState<any[]>([])
@@ -344,7 +343,6 @@ function ListeningManager() {
     }
 
     try {
-      // Delete from database
       const { error } = await supabase
         .from('listening_tests')
         .delete()
@@ -352,7 +350,6 @@ function ListeningManager() {
 
       if (error) throw error
 
-      // Refresh list
       fetchTests()
       alert('Test deleted successfully!')
     } catch (error: any) {
@@ -424,10 +421,8 @@ function ListeningManager() {
   )
 }
 
-// Listening Upload Form Component
 function ListeningUploadForm({ onBack }: { onBack: () => void }) {
   const [title, setTitle] = useState('')
-  const [answerKey, setAnswerKey] = useState('')
   const [files, setFiles] = useState({
     part1_audio: null as File | null,
     part2_audio: null as File | null,
@@ -437,13 +432,14 @@ function ListeningUploadForm({ onBack }: { onBack: () => void }) {
     part2_questions: null as File | null,
     part3_questions: null as File | null,
     part4_questions: null as File | null,
+    answer_key: null as File | null,
   })
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState('')
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title || !answerKey) return
+    if (!title) return
 
     setUploading(true)
     setMessage('')
@@ -451,7 +447,6 @@ function ListeningUploadForm({ onBack }: { onBack: () => void }) {
     try {
       const formData = new FormData()
       formData.append('title', title)
-      formData.append('answer_key', answerKey)
       
       if (files.part1_audio) formData.append('part1_audio', files.part1_audio)
       if (files.part2_audio) formData.append('part2_audio', files.part2_audio)
@@ -462,6 +457,7 @@ function ListeningUploadForm({ onBack }: { onBack: () => void }) {
       if (files.part2_questions) formData.append('part2_questions', files.part2_questions)
       if (files.part3_questions) formData.append('part3_questions', files.part3_questions)
       if (files.part4_questions) formData.append('part4_questions', files.part4_questions)
+      if (files.answer_key) formData.append('answer_key', files.answer_key)
 
       const res = await fetch('/api/listening/upload', {
         method: 'POST',
@@ -610,15 +606,18 @@ function ListeningUploadForm({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Answer Key</label>
-          <textarea
-            value={answerKey}
-            onChange={(e) => setAnswerKey(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none h-32"
-            placeholder="1. A&#10;2. B&#10;3. C&#10;..."
-            required
-          />
+        <div className="border p-4 rounded-lg bg-yellow-50 mt-4">
+          <h3 className="font-semibold text-yellow-800 mb-3">Answer Key</h3>
+          <div>
+            <label className="text-xs text-gray-600">Answer Key (Image/PDF)</label>
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              onChange={(e) => setFiles({...files, answer_key: e.target.files?.[0] || null})}
+              className="w-full text-sm"
+            />
+            <p className="text-xs text-gray-500 mt-1">Upload answer key as image or PDF file</p>
+          </div>
         </div>
 
         {message && (
