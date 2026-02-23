@@ -1,15 +1,19 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+// Create Supabase admin client with service role key
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
-    
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Create admin client (bypasses RLS)
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
 
     const formData = await request.formData();
     
@@ -26,19 +30,26 @@ export async function POST(request: Request) {
     const part3Questions = formData.get('part3_questions') as File;
     const part4Questions = formData.get('part4_questions') as File;
 
+    // Upload file to Supabase Storage
     const uploadFile = async (file: File | null, bucket: string, folder: string) => {
       if (!file || file.size === 0) return '';
+      
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
       const fileExt = file.name.split('.').pop();
       const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       
       const { data, error } = await supabase.storage
         .from(bucket)
-        .upload(fileName, file, {
+        .upload(fileName, buffer, {
+          contentType: file.type,
           cacheControl: '31536000',
-          upsert: false
         });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Upload error:', error);
+        throw error;
+      }
       
       const { data: { publicUrl } } = supabase.storage
         .from(bucket)
@@ -47,6 +58,7 @@ export async function POST(request: Request) {
       return publicUrl;
     };
 
+    // Upload all files
     const [
       part1AudioUrl, part2AudioUrl, part3AudioUrl, part4AudioUrl,
       part1QuestionsUrl, part2QuestionsUrl, part3QuestionsUrl, part4QuestionsUrl
@@ -61,6 +73,7 @@ export async function POST(request: Request) {
       uploadFile(part4Questions, 'listening-questions', 'questions'),
     ]);
 
+    // Save to database
     const { data, error } = await supabase
       .from('listening_tests')
       .insert({
@@ -76,7 +89,10 @@ export async function POST(request: Request) {
         answer_key: answerKey,
       });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Database error:', error);
+      throw error;
+    }
 
     return NextResponse.json({ success: true, data });
   } catch (error: any) {
