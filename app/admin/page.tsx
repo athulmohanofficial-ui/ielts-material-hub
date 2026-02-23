@@ -78,7 +78,15 @@ export default function AdminPage() {
             {pinError && (
               <p className="text-red-600 text-sm text-center">{pinError}</p>
             )}
-
+<button
+  onClick={() => setActiveTab('speaking-tests')}
+  className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${
+    activeTab === 'speaking-tests' ? 'bg-purple-50 text-purple-700 border-l-4 border-purple-600' : 'hover:bg-gray-50'
+  }`}
+>
+  <Mic className="w-5 h-5" />
+  <span className="font-medium">Speaking Tests</span>
+</button>
             <button
               type="submit"
               className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
@@ -805,4 +813,134 @@ function SubmissionsView() {
       )}
     </div>
   )
+  function SpeakingTestsUpload() {
+  const [title, setTitle] = useState('')
+  const [introQuestions, setIntroQuestions] = useState(['', '', '', '', '', ''])
+  const [cueCard, setCueCard] = useState('')
+  const [followUpQuestions, setFollowUpQuestions] = useState(['', '', '', '', ''])
+  const [uploading, setUploading] = useState(false)
+  const [message, setMessage] = useState('')
+
+  const handleUpload = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setUploading(true)
+    setMessage('')
+
+    try {
+      const { error } = await supabase.from('speaking_tests').insert({
+        title,
+        intro_q1: introQuestions[0],
+        intro_q2: introQuestions[1],
+        intro_q3: introQuestions[2],
+        intro_q4: introQuestions[3],
+        intro_q5: introQuestions[4],
+        intro_q6: introQuestions[5],
+        cue_card: cueCard,
+        followup_q1: followUpQuestions[0],
+        followup_q2: followUpQuestions[1],
+        followup_q3: followUpQuestions[2],
+        followup_q4: followUpQuestions[3],
+        followup_q5: followUpQuestions[4],
+      })
+
+      if (error) throw error
+
+      setMessage('Test created successfully!')
+      setTitle('')
+      setIntroQuestions(['', '', '', '', '', ''])
+      setCueCard('')
+      setFollowUpQuestions(['', '', '', '', ''])
+    } catch (error: any) {
+      setMessage('Error: ' + error.message)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border p-6">
+      <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+        <Mic className="w-6 h-6 text-purple-600" />
+        Create Speaking Test
+      </h2>
+
+      <form onSubmit={handleUpload} className="space-y-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Test Title</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full px-4 py-2 border rounded-lg"
+            placeholder="e.g., Speaking Test 1"
+            required
+          />
+        </div>
+
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <label className="block text-sm font-medium text-blue-800 mb-2">Part 1: Introduction Questions (6)</label>
+          {introQuestions.map((q, i) => (
+            <input
+              key={i}
+              type="text"
+              value={q}
+              onChange={(e) => {
+                const newQs = [...introQuestions]
+                newQs[i] = e.target.value
+                setIntroQuestions(newQs)
+              }}
+              className="w-full px-4 py-2 border rounded-lg mb-2"
+              placeholder={`Question ${i + 1}`}
+            />
+          ))}
+        </div>
+
+        <div className="bg-purple-50 p-4 rounded-lg">
+          <label className="block text-sm font-medium text-purple-800 mb-2">Part 2: Cue Card</label>
+          <textarea
+            value={cueCard}
+            onChange={(e) => setCueCard(e.target.value)}
+            className="w-full px-4 py-2 border rounded-lg h-32"
+            placeholder="Describe a memorable journey.&#10;You should say:&#10;- Where it is&#10;- How you went there&#10;- Who you were with&#10;- And explain why it was memorable"
+            required
+          />
+        </div>
+
+        <div className="bg-orange-50 p-4 rounded-lg">
+          <label className="block text-sm font-medium text-orange-800 mb-2">Part 3: Follow-up Questions (5)</label>
+          {followUpQuestions.map((q, i) => (
+            <input
+              key={i}
+              type="text"
+              value={q}
+              onChange={(e) => {
+                const newQs = [...followUpQuestions]
+                newQs[i] = e.target.value
+                setFollowUpQuestions(newQs)
+              }}
+              className="w-full px-4 py-2 border rounded-lg mb-2"
+              placeholder={`Question ${i + 1}`}
+            />
+          ))}
+        </div>
+
+        {message && (
+          <div className={`p-3 rounded-lg ${
+            message.includes('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
+          }`}>
+            {message}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={uploading}
+          className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition disabled:opacity-50"
+        >
+          {uploading ? 'Creating...' : 'Create Test'}
+        </button>
+      </form>
+    </div>
+  )
+}
 }
