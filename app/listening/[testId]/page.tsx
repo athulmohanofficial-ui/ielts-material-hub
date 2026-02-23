@@ -1,258 +1,340 @@
-'use client'
+'use client';
 
-import { useEffect, useState, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
-import Link from 'next/link'
+import { useEffect, useState, useRef } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useParams } from 'next/navigation';
 import { 
-  ArrowLeft, 
   Play, 
   Pause, 
-  Volume2, 
-  Download,
-  SkipBack,
-  SkipForward
-} from 'lucide-react'
+  SkipBack, 
+  SkipForward, 
+  ChevronRight, 
+  ChevronLeft,
+  Volume2,
+  FileText,
+  ArrowLeft
+} from 'lucide-react';
+import Link from 'next/link';
 
-export default function ListeningTestPage({ params }: { params: { testId: string } }) {
-  const [test, setTest] = useState<any>(null)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
-  const [volume, setVolume] = useState(1)
-  const [loading, setLoading] = useState(true)
-  const audioRef = useRef<HTMLAudioElement>(null)
-
-  useEffect(() => {
-    async function fetchTest() {
-      const { data, error } = await supabase
-        .from('listening_tests')
-        .select('*')
-        .eq('id', params.testId)
-        .single()
-      
-      if (data) {
-        setTest(data)
-      }
-      setLoading(false)
-    }
-    
-    fetchTest()
-  }, [params.testId])
+export default function ListeningTestPage() {
+  const params = useParams();
+  const testId = params.testId as string;
+  
+  const [test, setTest] = useState<any>(null);
+  const [currentPart, setCurrentPart] = useState(1);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [showAnswers, setShowAnswers] = useState(false);
+  const [loading, setLoading] = useState(true);
+  
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
+    fetchTest();
+  }, [testId]);
 
-    const updateTime = () => setCurrentTime(audio.currentTime)
-    const updateDuration = () => setDuration(audio.duration)
-    
-    audio.addEventListener('timeupdate', updateTime)
-    audio.addEventListener('loadedmetadata', updateDuration)
-    
-    return () => {
-      audio.removeEventListener('timeupdate', updateTime)
-      audio.removeEventListener('loadedmetadata', updateDuration)
+  useEffect(() => {
+    if (audioRef.current && test) {
+      audioRef.current.play().catch(e => console.log('Auto-play blocked'));
+      setIsPlaying(true);
     }
-  }, [test])
+  }, [currentPart, test]);
+
+  async function fetchTest() {
+    const { data, error } = await supabase
+      .from('listening_tests')
+      .select('*')
+      .eq('id', testId)
+      .single();
+    
+    if (data) {
+      setTest(data);
+      setLoading(false);
+    }
+  }
+
+  const getAudioUrl = () => {
+    if (!test) return '';
+    switch(currentPart) {
+      case 1: return test.part1_audio;
+      case 2: return test.part2_audio;
+      case 3: return test.part3_audio;
+      case 4: return test.part4_audio;
+      default: return '';
+    }
+  };
+
+  const getQuestionsUrl = () => {
+    if (!test) return '';
+    switch(currentPart) {
+      case 1: return test.part1_questions;
+      case 2: return test.part2_questions;
+      case 3: return test.part3_questions;
+      case 4: return test.part4_questions;
+      default: return '';
+    }
+  };
 
   const togglePlay = () => {
     if (audioRef.current) {
       if (isPlaying) {
-        audioRef.current.pause()
+        audioRef.current.pause();
       } else {
-        audioRef.current.play()
+        audioRef.current.play();
       }
-      setIsPlaying(!isPlaying)
+      setIsPlaying(!isPlaying);
     }
-  }
+  };
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+      setDuration(audioRef.current.duration || 0);
+    }
+  };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const time = parseFloat(e.target.value)
+    const time = parseFloat(e.target.value);
     if (audioRef.current) {
-      audioRef.current.currentTime = time
-      setCurrentTime(time)
+      audioRef.current.currentTime = time;
+      setCurrentTime(time);
     }
-  }
+  };
 
-  const handleVolume = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const vol = parseFloat(e.target.value)
+  const skipBackward = () => {
     if (audioRef.current) {
-      audioRef.current.volume = vol
-      setVolume(vol)
+      audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 10);
     }
-  }
+  };
+
+  const skipForward = () => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = Math.min(duration, audioRef.current.currentTime + 10);
+    }
+  };
+
+  const goToPart = (part: number) => {
+    if (part >= 1 && part <= 4) {
+      setCurrentPart(part);
+      setIsPlaying(false);
+      setCurrentTime(0);
+    }
+  };
 
   const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60)
-    const seconds = Math.floor(time % 60)
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`
-  }
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
 
-  const skip = (seconds: number) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime += seconds
-    }
-  }
+  if (loading) return <div className="p-8 text-center">Loading test...</div>;
+  if (!test) return <div className="p-8 text-center">Test not found</div>;
 
-  if (loading) {
+  if (showAnswers) {
     return (
-      <main className="min-h-screen p-8 bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-listening-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </main>
-    )
-  }
-
-  if (!test) {
-    return (
-      <main className="min-h-screen p-8 bg-gray-50">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-800">Test not found</h1>
-          <Link href="/listening" className="text-listening-600 mt-4 inline-block">
-            ← Back to Listening
-          </Link>
-        </div>
-      </main>
-    )
-  }
-
-  const { data: { publicUrl } } = supabase.storage.from('listening-audio').getPublicUrl(test.audio_path)
-
-  return (
-    <main className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center">
-          <Link href="/listening" className="mr-4 text-gray-500 hover:text-gray-700">
-            <ArrowLeft className="w-6 h-6" />
-          </Link>
-          <h1 className="text-xl font-bold text-gray-800">{test.title}</h1>
+      <div className="min-h-screen bg-gray-50 p-8">
+        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-green-600">Answer Key: {test.title}</h1>
+            <button
+              onClick={() => setShowAnswers(false)}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Listening
+            </button>
+          </div>
+          
+          <div className="bg-gray-100 p-6 rounded-lg whitespace-pre-wrap font-mono text-sm">
+            {test.answer_key || 'No answers provided yet.'}
+          </div>
         </div>
       </div>
+    );
+  }
 
-      <div className="max-w-4xl mx-auto p-4">
-        {/* Audio Player Card */}
-        <div className="bg-white rounded-2xl shadow-lg border overflow-hidden mb-6">
-          {/* Audio Element */}
-          <audio 
-            ref={audioRef} 
-            src={publicUrl} 
-            onEnded={() => setIsPlaying(false)}
-          />
+  return (
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">{test.title}</h1>
+            <p className="text-gray-600">Part {currentPart} of 4</p>
+          </div>
+          <Link 
+            href="/listening" 
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-800"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Back to Tests
+          </Link>
+        </div>
 
-          {/* Main Controls */}
-          <div className="bg-listening-600 text-white p-8">
-            <div className="flex items-center justify-center gap-6 mb-6">
-              <button 
-                onClick={() => skip(-10)}
-                className="p-2 hover:bg-white/20 rounded-full transition"
-              >
-                <SkipBack className="w-6 h-6" />
-              </button>
-              
-              <button 
-                onClick={togglePlay}
-                className="w-16 h-16 bg-white text-listening-600 rounded-full flex items-center justify-center hover:scale-105 transition shadow-lg"
-              >
-                {isPlaying ? (
-                  <Pause className="w-8 h-8" />
-                ) : (
-                  <Play className="w-8 h-8 ml-1" />
-                )}
-              </button>
-              
-              <button 
-                onClick={() => skip(10)}
-                className="p-2 hover:bg-white/20 rounded-full transition"
-              >
-                <SkipForward className="w-6 h-6" />
-              </button>
-            </div>
+        {/* Part Navigation Tabs */}
+        <div className="flex gap-2 mb-6">
+          {[1, 2, 3, 4].map((part) => (
+            <button
+              key={part}
+              onClick={() => goToPart(part)}
+              className={`flex-1 py-3 px-4 rounded-lg font-medium transition ${
+                currentPart === part
+                  ? 'bg-green-600 text-white'
+                  : 'bg-white text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              Part {part}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Left: Audio Player */}
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Volume2 className="w-5 h-5 text-green-600" />
+              Audio Player - Part {currentPart}
+            </h2>
+
+            <audio
+              ref={audioRef}
+              src={getAudioUrl()}
+              onTimeUpdate={handleTimeUpdate}
+              onEnded={() => setIsPlaying(false)}
+              onLoadedMetadata={handleTimeUpdate}
+            />
 
             {/* Progress Bar */}
-            <div className="mb-2">
+            <div className="mb-4">
               <input
                 type="range"
                 min={0}
                 max={duration || 0}
                 value={currentTime}
                 onChange={handleSeek}
-                className="w-full h-2 bg-white/30 rounded-lg appearance-none cursor-pointer accent-white"
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-600"
               />
+              <div className="flex justify-between text-sm text-gray-500 mt-1">
+                <span>{formatTime(currentTime)}</span>
+                <span>{formatTime(duration)}</span>
+              </div>
             </div>
-            
-            <div className="flex justify-between text-sm font-medium">
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration)}</span>
-            </div>
-          </div>
 
-          {/* Volume & Download */}
-          <div className="p-6 flex items-center justify-between bg-gray-50">
-            <div className="flex items-center gap-3">
-              <Volume2 className="w-5 h-5 text-gray-600" />
+            {/* Controls */}
+            <div className="flex items-center justify-center gap-4 mb-4">
+              <button
+                onClick={skipBackward}
+                className="p-3 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700"
+                title="Back 10 seconds"
+              >
+                <SkipBack className="w-5 h-5" />
+              </button>
+
+              <button
+                onClick={togglePlay}
+                className="p-4 rounded-full bg-green-600 hover:bg-green-700 text-white"
+              >
+                {isPlaying ? (
+                  <Pause className="w-6 h-6" />
+                ) : (
+                  <Play className="w-6 h-6 ml-1" />
+                )}
+              </button>
+
+              <button
+                onClick={skipForward}
+                className="p-3 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700"
+                title="Forward 10 seconds"
+              >
+                <SkipForward className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Volume */}
+            <div className="flex items-center gap-3 mb-4">
+              <Volume2 className="w-4 h-4 text-gray-500" />
               <input
                 type="range"
                 min={0}
                 max={1}
                 step={0.1}
                 value={volume}
-                onChange={handleVolume}
-                className="w-24 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-listening-600"
+                onChange={(e) => {
+                  const vol = parseFloat(e.target.value);
+                  setVolume(vol);
+                  if (audioRef.current) audioRef.current.volume = vol;
+                }}
+                className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-600"
               />
             </div>
+
+            {/* Navigation Arrows */}
+            <div className="flex justify-between pt-4 border-t">
+              <button
+                onClick={() => goToPart(currentPart - 1)}
+                disabled={currentPart === 1}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                  currentPart === 1
+                    ? 'text-gray-300 cursor-not-allowed'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <ChevronLeft className="w-5 h-5" />
+                Previous
+              </button>
+
+              <button
+                onClick={() => goToPart(currentPart + 1)}
+                disabled={currentPart === 4}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                  currentPart === 4
+                    ? 'text-gray-300 cursor-not-allowed'
+                    : 'bg-green-600 text-white hover:bg-green-700'
+                }`}
+              >
+                Next
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Right: Questions Image */}
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-green-600" />
+              Part {currentPart} Questions
+            </h2>
             
-            <a 
-              href={publicUrl}
-              download
-              className="flex items-center gap-2 text-gray-600 hover:text-listening-600 transition"
-            >
-              <Download className="w-5 h-5" />
-              <span className="text-sm font-medium">Download Audio</span>
-            </a>
+            <div className="bg-gray-50 rounded-lg overflow-hidden h-[500px] flex items-center justify-center">
+              {getQuestionsUrl() ? (
+                <img 
+                  src={getQuestionsUrl()} 
+                  alt={`Part ${currentPart} Questions`}
+                  className="max-w-full max-h-full object-contain"
+                />
+              ) : (
+                <div className="text-center text-gray-400">
+                  <FileText className="w-16 h-16 mx-auto mb-2 opacity-50" />
+                  <p>No questions uploaded for this part yet.</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Instructions Card */}
-        <div className="bg-white rounded-xl border p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-3">Test Instructions</h2>
-          <ul className="space-y-2 text-gray-600">
-            <li className="flex items-start">
-              <span className="text-listening-600 mr-2">•</span>
-              You will hear 4 sections of audio
-            </li>
-            <li className="flex items-start">
-              <span className="text-listening-600 mr-2">•</span>
-              Each section is played once only
-            </li>
-            <li className="flex items-start">
-              <span className="text-listening-600 mr-2">•</span>
-              You have time to read questions before each section
-            </li>
-            <li className="flex items-start">
-              <span className="text-listening-600 mr-2">•</span>
-              Write your answers on paper as you listen
-            </li>
-            <li className="flex items-start">
-              <span className="text-listening-600 mr-2">•</span>
-              You have 10 minutes at the end to transfer answers
-            </li>
-          </ul>
-        </div>
-
-        {/* Difficulty Badge */}
-        <div className="mt-4 flex justify-center">
-          <span className={`px-4 py-2 rounded-full text-sm font-medium ${
-            test.difficulty === 'easy' ? 'bg-green-100 text-green-700' :
-            test.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-            'bg-red-100 text-red-700'
-          }`}>
-            Difficulty: {test.difficulty}
-          </span>
+        {/* Show Answers Button */}
+        <div className="mt-8 text-center">
+          <button
+            onClick={() => setShowAnswers(true)}
+            className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2 mx-auto"
+          >
+            <FileText className="w-5 h-5" />
+            Show Answers
+          </button>
         </div>
       </div>
-    </main>
-  )
+    </div>
+  );
 }
