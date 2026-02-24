@@ -2,6 +2,15 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { ArrowLeft, Download } from 'lucide-react'
 
+// ============================================
+// STEP 1: Tell Vercel "Build this page when someone visits"
+// This stops the error!
+// ============================================
+export const dynamic = 'force-dynamic'
+
+// ============================================
+// STEP 2: Fetch one test from database
+// ============================================
 async function getTest(testId: string) {
   const { data, error } = await supabase
     .from('reading_tests')
@@ -17,20 +26,29 @@ async function getTest(testId: string) {
   return data
 }
 
+// ============================================
+// STEP 3: Get the PDF file links from Supabase
+// ============================================
 function getPublicUrl(bucket: string, path: string) {
   const { data } = supabase.storage.from(bucket).getPublicUrl(path)
   return data.publicUrl
 }
 
+// ============================================
+// STEP 4: The actual page that shows to users
+// ============================================
 export default async function ReadingTestPage({ params }: { params: { testId: string } }) {
+  
+  // Get the test data
   const test = await getTest(params.testId)
   
+  // If test not found, show error message
   if (!test) {
     return (
       <main className="min-h-screen p-8 bg-gray-50">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-800">Test not found</h1>
-          <Link href="/reading" className="text-reading-600 mt-4 inline-block">
+          <Link href="/reading" className="text-blue-600 mt-4 inline-block">
             ← Back to Reading
           </Link>
         </div>
@@ -38,12 +56,15 @@ export default async function ReadingTestPage({ params }: { params: { testId: st
     )
   }
 
+  // Create links to the PDF files
   const passageUrl = getPublicUrl('reading-passages', test.passage_path)
   const questionsUrl = getPublicUrl('reading-questions', test.questions_path)
 
+  // Show the page with two PDF viewers side by side
   return (
     <main className="min-h-screen bg-gray-50">
-      {/* Header */}
+      
+      {/* Top bar with title and back button */}
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center">
@@ -53,24 +74,24 @@ export default async function ReadingTestPage({ params }: { params: { testId: st
             <h1 className="text-xl font-bold text-gray-800">{test.title}</h1>
           </div>
           <div className="text-sm text-gray-500">
-            Time remaining: <span className="font-mono font-bold text-reading-600">60:00</span>
+            Time remaining: <span className="font-mono font-bold text-blue-600">60:00</span>
           </div>
         </div>
       </div>
 
-      {/* Split Screen PDFs */}
+      {/* Two columns: Left = Passage, Right = Questions */}
       <div className="max-w-7xl mx-auto p-4">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-[calc(100vh-120px)]">
           
-          {/* Left: Passage */}
+          {/* LEFT SIDE: Reading Passage PDF */}
           <div className="bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col">
-            <div className="bg-reading-50 px-4 py-3 border-b flex items-center justify-between">
-              <h2 className="font-semibold text-reading-800">Reading Passage</h2>
+            <div className="bg-blue-50 px-4 py-3 border-b flex items-center justify-between">
+              <h2 className="font-semibold text-blue-800">Reading Passage</h2>
               <a 
                 href={passageUrl} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-reading-600 hover:text-reading-700"
+                className="text-blue-600 hover:text-blue-700"
               >
                 <Download className="w-5 h-5" />
               </a>
@@ -84,15 +105,15 @@ export default async function ReadingTestPage({ params }: { params: { testId: st
             </div>
           </div>
 
-          {/* Right: Questions */}
+          {/* RIGHT SIDE: Questions PDF */}
           <div className="bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col">
-            <div className="bg-reading-50 px-4 py-3 border-b flex items-center justify-between">
-              <h2 className="font-semibold text-reading-800">Questions</h2>
+            <div className="bg-blue-50 px-4 py-3 border-b flex items-center justify-between">
+              <h2 className="font-semibold text-blue-800">Questions</h2>
               <a 
                 href={questionsUrl} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-reading-600 hover:text-reading-700"
+                className="text-blue-600 hover:text-blue-700"
               >
                 <Download className="w-5 h-5" />
               </a>
@@ -108,7 +129,7 @@ export default async function ReadingTestPage({ params }: { params: { testId: st
 
         </div>
 
-        {/* Instructions */}
+        {/* Blue instruction box at bottom */}
         <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
           <strong>Instructions:</strong> Read the passage on the left and answer the questions on the right. 
           Write your answers on paper. The timer above shows 60 minutes for this section.
